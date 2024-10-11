@@ -7,6 +7,7 @@ import time
 # Глобальная переменная для сокета
 client_socket = None
 
+
 # Функция для отправки команды на сервер
 def send_command(command):
     global client_socket
@@ -39,7 +40,8 @@ def send_command(command):
                 file_name = os.path.basename(file_path)
                 file_size = os.path.getsize(file_path)
 
-                client_socket.sendall("receive_file:{}".format(file_name).encode('utf-8'))  # Отправляем команду с именем файла
+                client_socket.sendall(
+                    "receive_file:{}".format(file_name).encode('utf-8'))  # Отправляем команду с именем файла
                 print("Sent command: {}".format(command))
 
                 response = client_socket.recv(1024)
@@ -144,7 +146,6 @@ def client_menu():
             print("Invalid choice. Please try again.")
 
 
-
 def discover_server():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
         client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -155,7 +156,7 @@ def discover_server():
             client_socket.settimeout(5)
             data, addr = client_socket.recvfrom(1024)
             print(f"Server IP discovered: {data.decode('utf-8')}")
-            return data.decode('utf-8').split(':')[1]  # Возвращаем только IP
+            return data.decode('utf-8').split(':')[1]
         except socket.timeout:
             print("No server response received.")
             return None
@@ -165,14 +166,13 @@ def start_client():
     server_ip = discover_server()
     if server_ip:
         global client_socket
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket = socket.socket(socket.AF_INET, socket.SsOCK_STREAM)
         client_socket.connect((server_ip, 8080))
-        print(f"Connected to server at {server_ip}")
 
-        # Call the client menu for command interaction
         client_menu()
     else:
         print("Failed to discover server. Exiting...")
+
 
 if __name__ == "__main__":
     start_client()
