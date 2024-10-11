@@ -11,25 +11,29 @@ client_socket = None
 # Функция для отправки команды на сервер
 def send_command(command):
     global client_socket
+    s.sendall(command.encode('utf-8'))
+    print(f"Sent command: {command}")
     try:
         if command not in ['screenshot', 'send_file', 'get_file']:
             client_socket.sendall(command.encode('utf-8'))
             print(f"Sent command: {command}")
 
         if command == "screenshot":
-            client_socket.sendall(command.encode('utf-8'))
-            print(f"Sent command: {command}")
-            payload_size = struct.calcsize(">Q")
+            # Получаем размер файла
+            payload_size = struct.calcsize("L")
             data = b""
             while len(data) < payload_size:
-                data += client_socket.recv(1024)
+                data += s.recv(1024)
             packed_image_size = data[:payload_size]
-            image_size = struct.unpack(">Q", packed_image_size)[0]
+            image_size = struct.unpack("L", packed_image_size)[0]
             data = data[payload_size:]
+
             while len(data) < image_size:
-                data += client_socket.recv(1024)
+                data += s.recv(1024)
+
             frame_data = data[:image_size]
             image = pickle.loads(frame_data)  # Десериализация изображения
+
             # Сохранение изображения
             image.save("screenshot.png")
             print("Screenshot saved as screenshot.png")
@@ -166,7 +170,7 @@ def start_client():
     server_ip = discover_server()
     if server_ip:
         global client_socket
-        client_socket = socket.socket(socket.AF_INET, socket.SsOCK_STREAM)
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect((server_ip, 8080))
 
         client_menu()
