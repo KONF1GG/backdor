@@ -145,25 +145,37 @@ def client_menu():
 
 
 def start_client():
-    # Create a socket and connect to the server
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-        # Connect to the server listening on port 8080
-        server_address = ('0.0.0.0', 8080)  # Change to your target server if needed
-        client_socket.connect(server_address)
+    global client_socket
+    # Создаем сокет
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        # Receive the server's IP address
-        server_ip = client_socket.recv(1024).decode('utf-8').split(':')[1]
-        print(f"Received server IP: {server_ip}")
+    # Настраиваем сокет для прослушивания
+    server_address = ('0.0.0.0', 8080)  # Порт, на котором будет слушать клиент
+    client_socket.bind(server_address)
+    client_socket.listen(1)
+    print(f"Listening for incoming connections on {server_address[0]}:{server_address[1]}")
 
-        # Now you can implement further logic using the server_ip
-        # For example, sending commands to the server
-        while True:
-            command = input("Enter command: ")  # Get command from user
-            client_socket.sendall(command.encode('utf-8'))
+    while True:
+        try:
+            # Ожидаем подключения
+            conn, addr = client_socket.accept()
+            print(f"Connected by {addr}")
 
-            # Handle server responses
-            response = client_socket.recv(1024).decode('utf-8')
-            print(f"Server response: {response}")
+            # Обработка сообщений от подключившегося клиента
+            while True:
+                message = conn.recv(1024).decode('utf-8')
+                if message:
+                    print(f"Received message: {message}")
+                    # Пример обработки сообщения
+                    # Здесь можно добавлять логику для обработки различных команд
+                else:
+                    print("Connection closed by the client.")
+                    break
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            time.sleep(5)  # Ожидание перед повторной попыткой
+
 
 if __name__ == "__main__":
     try:
