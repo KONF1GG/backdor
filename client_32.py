@@ -143,30 +143,30 @@ def client_menu():
         else:
             print("Invalid choice. Please try again.")
 
-# Запуск клиента
-# Запуск клиента
+
+def start_client():
+    # Create a socket and connect to the server
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        # Connect to the server listening on port 8080
+        server_address = ('0.0.0.0', 8080)  # Change to your target server if needed
+        client_socket.connect(server_address)
+
+        # Receive the server's IP address
+        server_ip = client_socket.recv(1024).decode('utf-8').split(':')[1]
+        print(f"Received server IP: {server_ip}")
+
+        # Now you can implement further logic using the server_ip
+        # For example, sending commands to the server
+        while True:
+            command = input("Enter command: ")  # Get command from user
+            client_socket.sendall(command.encode('utf-8'))
+
+            # Handle server responses
+            response = client_socket.recv(1024).decode('utf-8')
+            print(f"Server response: {response}")
+
 if __name__ == "__main__":
     try:
-        # Открытие сокета
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        while True:
-            try:
-                client_socket.connect(('localhost', 8080))
-                print("Connected to server.")
-                break
-            except ConnectionRefusedError:
-                print("Server not available, retrying...")
-                time.sleep(1)  # Подождите перед повторной попыткой подключения
-
-        # Получение IP-адреса клиента от сервера
-        ip_address = client_socket.recv(1024).decode('utf-8')
-        print("Server sent:", ip_address)
-
-        # После получения IP-адреса можно продолжить
-        client_menu()
+        start_client()
     except Exception as e:
-        print("An error occurred while connecting to the server: {}".format(e))
-    finally:
-        if client_socket:
-            client_socket.close()  # Закрываем сокет при выходе
+        print(f"An error occurred: {e}")

